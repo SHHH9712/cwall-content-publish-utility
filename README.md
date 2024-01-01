@@ -3,7 +3,7 @@ This CLI tool is used for publish posts to your Instagram account.
 Here we won't talk about how to setup Meta developer account and apps.
 
 Basic usage of app
-1. create and configure config.yaml
+1. create and configure `config.yaml`
 ```
 directory_path: /your/path/to/image/folder
 facebook_access_token: xxxxx
