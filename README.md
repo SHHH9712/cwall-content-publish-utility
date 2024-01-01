@@ -14,4 +14,5 @@ google_drive_folder_id: xxxx
 3. `pip install -r requirements.txt`
 4. `python cwall.py --help`
 5. `python cwall.py quota`
-6. `python cwall.py publish`
+6. `python cwall.py publish-to-google`
+7. `python cwall.py publish-to-ins`

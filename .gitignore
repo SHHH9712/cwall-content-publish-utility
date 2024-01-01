@@ -3,3 +3,4 @@ config.yaml
 /image_archive
 /credentials.json
 token.json
+.venv
