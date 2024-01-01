@@ -177,7 +177,7 @@ def publish():
         logging.info("No files to upload to google drive. Exiting...")
         return
     logging.info(f"Uploaded {len(drive_file_ids)} files to Google Drive. Waiting 30 seconds before posting to Facebook...")
-    time.sleep(30)
+    time.sleep(180)
     for drive_file_id, filename in drive_file_ids:
         success = 0
         for i in range(3):
