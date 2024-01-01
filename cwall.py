@@ -32,8 +32,11 @@ def process_image(file_path, save_path):
     im = Image.open(file_path)
     im = make_square(im)
     im.save(save_path)
-    im.save(file_path)
     logging.info(f"Processed image saved as {save_path}")
+    
+def move_file(file_path, save_path):
+    os.rename(file_path, save_path)
+    logging.info(f"Moved file {file_path} to {save_path}")
 
 def load_config(yaml_file):
     with open(yaml_file, 'r') as file:
@@ -87,9 +90,10 @@ def test_access_token(access_token):
     
 # Facebook Graph API Upload
 def post_to_facebook(drive_file_id, access_token, user_id):
-    image_url = f"https://drive.google.com/uc?id={drive_file_id}"
+    image_url = f"https://drive.google.com/file/d/{drive_file_id}"
     upload_url = f"https://graph.facebook.com/v18.0/{user_id}/media"
     upload_params = {"image_url": image_url, "access_token": access_token}
+    print(upload_params)
     upload_response = requests.post(upload_url, params=upload_params)
     if upload_response.status_code != 200:
         logging.error(f"Error in media upload to Facebook: {upload_response.text}")
@@ -121,70 +125,70 @@ def get_upload_quota_usage(facebook_access_token, facebook_user_id):
         logging.error(f"An error occurred: {e}")
         return
 
-@app.command(help=f"Publishe raw screenshots in '{config['directory_path']}' directory.")
-def publish():
+@app.command(help=f"Publishe raw screenshots to Google Drive in '{config['directory_path']}' directory.")
+def publish_to_google():
     directory_path = config['directory_path']
     google_drive_folder_id = config['google_drive_folder_id']
-    facebook_access_token = config['facebook_access_token']
-    facebook_user_id = config['facebook_user_id']
-    
-    if not test_access_token(facebook_access_token):
-        logging.error("Expired Facebook access token.")
-        facebook_access_token = get_facebook_access_token()
-    
-    
-    used_quota = get_upload_quota_usage(facebook_access_token, facebook_user_id)
     input_files = [f for f in os.listdir(directory_path) if f.endswith((".jpg", ".JPG", ".JPEG", ".JPEG")) and f.startswith("IMG")]
-    
-    if used_quota == -1 or used_quota == None:
-        logging.error("Failed to retrieve quota.")
-        return
-    available_quota = 50 - used_quota
-    
-    file_count = len(input_files)
-    
-    if available_quota <= 0:
-        logging.error("No available quota for today.")
-        return
-    
-    logging.info(f"Available quota: {available_quota}")
-    
+
     # Create a directory based on today's date
     today_date = datetime.datetime.now().strftime("%Y-%m-%d")
     archive_directory = os.path.join('', "image_archive", today_date)
     if not os.path.exists(archive_directory):
         os.makedirs(archive_directory)
         logging.info(f"Created directory {archive_directory}")
-    if len(os.listdir(archive_directory)) > 50:
-        logging.error("today's post limit reached")
-        return
 
-    drive_file_ids = []
-    post_count = 0
     for filename in input_files:
-        if post_count >= available_quota:
-            break
         file_path = os.path.join(directory_path, filename)
         logging.info(f"Processing file {file_path}")
-
-        # Save processed file in the archive directory
-        processed_file_name = filename.replace(".jpg", ".JPEG")
-        processed_file_path = os.path.join(archive_directory, processed_file_name)
-        process_image(file_path, processed_file_path)
-        drive_file_id = upload_to_drive(processed_file_path, google_drive_folder_id)
-        drive_file_ids.append((drive_file_id, filename))
-    if len(drive_file_ids) == 0:
-        logging.info("No files to upload to google drive. Exiting...")
+        process_image(file_path, filename.replace(".jpg", ".JPEG"))
+        drive_file_id = upload_to_drive(file_path, google_drive_folder_id)
+        new_filename = filename.split('.')[0]+"-"+filename.replace(filename, drive_file_id)+".JPEG"
+        move_file(file_path, os.path.join(directory_path, new_filename))
+        
+        # # Save processed file in the archive directory
+        # processed_file_name = filename.replace(".jpg", ".JPEG")
+        # processed_file_path = os.path.join(archive_directory, processed_file_name)
+        # process_image(file_path, processed_file_path)
+        # drive_file_id = upload_to_drive(processed_file_path, google_drive_folder_id)
+        # file_path = file_path.replace(filename, drive_file_id)
+        # processed_file_path = processed_file_path.replace(filename, drive_file_id)
+        # process_image(file_path, file_path)
+        # process_image(file_path, processed_file_path)
+        
+    logging.info(f"Published {len(input_files)} images to Google drive.")
+    
+@app.command(help=f"Publishes images in '{config['directory_path']}' directory to Facebook.")
+def publish_to_ins():
+    facebook_access_token = config['facebook_access_token']
+    facebook_user_id = config['facebook_user_id']
+    if not test_access_token(facebook_access_token):
+        logging.error("Expired Facebook access token.")
+        facebook_access_token = get_facebook_access_token()
+    logging.info("Access token is valid.")
+    
+    used_quota = get_upload_quota_usage(facebook_access_token, facebook_user_id)
+    if used_quota == -1 or used_quota == None:
+        logging.error("Failed to retrieve quota.")
         return
-    logging.info(f"Uploaded {len(drive_file_ids)} files to Google Drive. Waiting 180 seconds before posting to Facebook...")
-    time.sleep(180)
-    for drive_file_id, filename in drive_file_ids:
+    elif used_quota >= 50:
+        logging.error("No available quota for today.")
+        return
+    logging.info(f"Available quota: {50 - used_quota}")
+
+    filenames = [x for x in os.listdir(config['directory_path']) if x.endswith((".jpg", ".JPG", ".JPEG", ".JPEG")) and x.startswith("IMG")]
+    drive_file_ids = ["-".join(x.split('.')[0].split('-')[2:]) for x in filenames]
+    post_count = 0
+    for filename, drive_file_id in zip(filenames, drive_file_ids):
+        if post_count >= 50 - used_quota:
+            break
         success = 0
         for i in range(3):
             result = post_to_facebook(drive_file_id, facebook_access_token, facebook_user_id)
             if result:
                 logging.info(f"{filename} Image posted to Facebook successfully with id: {result['id']}")
-                os.remove(file_path)
+                move_file(os.path.join(config['directory_path'], filename), os.path.join(config['directory_path'], "image_archive", filename))
+                # os.remove(os.path.join(config['directory_path'], filename))
                 post_count += 1
                 success = 1
                 break
@@ -193,7 +197,7 @@ def publish():
                 time.sleep(5)
             if not success:
                 logging.error(f"{filename} Failed to post to Facebook after 3 attempts. Exiting...")
-    logging.info(f"Published {post_count} posts. {file_count - post_count} files remain unprocessed.")
+    logging.info(f"Published {post_count} posts. {len(filenames) - post_count} files remain unpublished.")
 
 @app.command(help="prints content publishing limit, max 50/day")
 def quota():
