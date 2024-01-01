@@ -16,3 +16,4 @@ google_drive_folder_id: xxxx
 5. `python cwall.py quota`
 6. `python cwall.py publish-to-google`
 7. `python cwall.py publish-to-ins`
+8. `python cwall.py run`

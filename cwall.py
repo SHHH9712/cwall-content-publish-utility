@@ -261,6 +261,7 @@ def quota():
 def run(t: int = typer.Option(
     30, help="time to sleep in between two operation.")):
     publish_to_google()
+    logging.info(f"Sleeping for {t} seconds...")
     time.sleep(t)
     publish_to_ins()
 
