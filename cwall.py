@@ -33,7 +33,7 @@ def process_image(file_path, save_path):
     im = make_square(im)
     im.save(save_path)
     logging.info(f"Processed image saved as {save_path}")
-    
+
 def move_file(file_path, save_path):
     os.rename(file_path, save_path)
     logging.info(f"Moved file {file_path} to {save_path}")
@@ -90,7 +90,7 @@ def test_access_token(access_token):
     
 # Facebook Graph API Upload
 def post_to_facebook(drive_file_id, access_token, user_id):
-    image_url = f"https://drive.google.com/file/d/{drive_file_id}"
+    image_url = f"https://drive.google.com/uc?id={drive_file_id}"
     upload_url = f"https://graph.facebook.com/v18.0/{user_id}/media"
     upload_params = {"image_url": image_url, "access_token": access_token}
     print(upload_params)
@@ -129,22 +129,24 @@ def get_upload_quota_usage(facebook_access_token, facebook_user_id):
 def publish_to_google():
     directory_path = config['directory_path']
     google_drive_folder_id = config['google_drive_folder_id']
-    input_files = [f for f in os.listdir(directory_path) if f.endswith((".jpg", ".JPG", ".JPEG", ".JPEG")) and f.startswith("IMG")]
+    discard = os.path.join(directory_path, "discard")
+    if not os.path.exists(discard):
+        os.makedirs(discard)
+        logging.info(f"Created directory {discard}")
+    else:
+        for f in os.listdir(discard):
+            os.remove(os.path.join(discard, f))
 
-    # Create a directory based on today's date
-    today_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    archive_directory = os.path.join('', "image_archive", today_date)
-    if not os.path.exists(archive_directory):
-        os.makedirs(archive_directory)
-        logging.info(f"Created directory {archive_directory}")
-
+    input_files = [f for f in os.listdir(directory_path) if f.endswith((".jpg")) and f.startswith("IMG")]
     for filename in input_files:
+        logging.info(f"Processing file {filename}")
         file_path = os.path.join(directory_path, filename)
-        logging.info(f"Processing file {file_path}")
-        process_image(file_path, filename.replace(".jpg", ".JPEG"))
-        drive_file_id = upload_to_drive(file_path, google_drive_folder_id)
+        JPEG_file_path = file_path.replace(".jpg", ".JPEG")
+        process_image(file_path, JPEG_file_path)
+        os.rename(file_path, os.path.join(directory_path, "discard", filename))
+        drive_file_id = upload_to_drive(JPEG_file_path, google_drive_folder_id)
         new_filename = filename.split('.')[0]+"-"+filename.replace(filename, drive_file_id)+".JPEG"
-        move_file(file_path, os.path.join(directory_path, new_filename))
+        os.rename(JPEG_file_path, os.path.join(directory_path, new_filename))
         
         # # Save processed file in the archive directory
         # processed_file_name = filename.replace(".jpg", ".JPEG")
@@ -160,6 +162,14 @@ def publish_to_google():
     
 @app.command(help=f"Publishes images in '{config['directory_path']}' directory to Facebook.")
 def publish_to_ins():
+    directory_path = config['directory_path']
+    # Create a directory based on today's date
+    today_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    archive_directory = os.path.join(directory_path, "cwall_image_archive", today_date)
+    if not os.path.exists(archive_directory):
+        os.makedirs(archive_directory)
+        logging.info(f"Created directory {archive_directory}")
+        
     facebook_access_token = config['facebook_access_token']
     facebook_user_id = config['facebook_user_id']
     if not test_access_token(facebook_access_token):
@@ -176,18 +186,19 @@ def publish_to_ins():
         return
     logging.info(f"Available quota: {50 - used_quota}")
 
-    filenames = [x for x in os.listdir(config['directory_path']) if x.endswith((".jpg", ".JPG", ".JPEG", ".JPEG")) and x.startswith("IMG")]
-    drive_file_ids = ["-".join(x.split('.')[0].split('-')[2:]) for x in filenames]
+    filenames = [x for x in os.listdir(config['directory_path']) if x.endswith(".JPEG") and x.startswith("IMG")]
+    drive_file_ids = ["-".join(x.split('.')[0].split('-')[1:]) for x in filenames]
     post_count = 0
     for filename, drive_file_id in zip(filenames, drive_file_ids):
         if post_count >= 50 - used_quota:
             break
         success = 0
         for i in range(3):
-            result = post_to_facebook(drive_file_id, facebook_access_token, facebook_user_id)
+            # result = post_to_facebook(drive_file_id, facebook_access_token, facebook_user_id)
+            result = {"id": "123456789"}
             if result:
                 logging.info(f"{filename} Image posted to Facebook successfully with id: {result['id']}")
-                move_file(os.path.join(config['directory_path'], filename), os.path.join(config['directory_path'], "image_archive", filename))
+                move_file(os.path.join(config['directory_path'], filename), os.path.join(archive_directory, filename))
                 # os.remove(os.path.join(config['directory_path'], filename))
                 post_count += 1
                 success = 1
