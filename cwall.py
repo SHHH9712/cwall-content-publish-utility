@@ -32,6 +32,7 @@ def process_image(file_path, save_path):
     im = Image.open(file_path)
     im = make_square(im)
     im.save(save_path)
+    im.save(file_path)
     logging.info(f"Processed image saved as {save_path}")
 
 def load_config(yaml_file):
@@ -167,7 +168,7 @@ def publish():
         logging.info(f"Processing file {file_path}")
 
         # Save processed file in the archive directory
-        processed_file_name = filename.replace(".jpg", "_square.JPEG")
+        processed_file_name = filename.replace(".jpg", ".JPEG")
         processed_file_path = os.path.join(archive_directory, processed_file_name)
         process_image(file_path, processed_file_path)
         drive_file_id = upload_to_drive(processed_file_path, google_drive_folder_id)
