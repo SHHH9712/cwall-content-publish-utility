@@ -105,15 +105,8 @@ def post_to_facebook(drive_file_id, access_token, user_id):
     logging.info(f"Published media to Facebook with ID {creation_id}")
     return publish_response.json()
 
-def get_upload_quota_usage():
+def get_upload_quota_usage(facebook_access_token, facebook_user_id):
     """Retrieves the available quota for content publishing."""
-    facebook_access_token = config['facebook_access_token']
-    facebook_user_id = config['facebook_user_id']
-    
-    if not test_access_token(facebook_access_token):
-        logging.error("Expired Facebook access token.")
-        facebook_access_token = get_facebook_access_token()
-
     url = f"https://graph.facebook.com/v18.0/{facebook_user_id}/content_publishing_limit"
     params = {'access_token': facebook_access_token}
     
@@ -139,7 +132,7 @@ def publish():
         facebook_access_token = get_facebook_access_token()
     
     
-    used_quota = get_upload_quota_usage()
+    used_quota = get_upload_quota_usage(facebook_access_token, facebook_user_id)
     input_files = [f for f in os.listdir(directory_path) if f.endswith((".jpg", ".JPG", ".JPEG", ".JPEG")) and f.startswith("IMG")]
     
     if used_quota == -1 or used_quota == None:
@@ -203,7 +196,13 @@ def publish():
 
 @app.command(help="prints content publishing limit, max 50/day")
 def quota():
-    print(f"Used quota: {get_upload_quota_usage()}")
+    facebook_access_token = config['facebook_access_token']
+    facebook_user_id = config['facebook_user_id']
+    
+    if not test_access_token(facebook_access_token):
+        logging.error("Expired Facebook access token.")
+        facebook_access_token = get_facebook_access_token()
+    print(f"Used quota: {get_upload_quota_usage(facebook_access_token, facebook_user_id)}")
 
 if __name__ == "__main__":
     app()

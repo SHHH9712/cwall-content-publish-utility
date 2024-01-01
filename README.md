@@ -10,7 +10,8 @@ facebook_access_token: xxxxx
 facebook_user_id: 1234
 google_drive_folder_id: xxxx
 ```
-2. get `credentials.json` from Google Cloud Project
-2. `pip install -r requirements.txt`
-3. `python cwall.py quota`
-4. `python cwall.py quota`
+2. get `credentials.json` from [GCP](console.cloud.google.com/workspace-api/credentials)
+3. `pip install -r requirements.txt`
+4. `python cwall.py --help`
+5. `python cwall.py quota`
+6. `python cwall.py publish`
